@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Soundboard Studio | Interactive Web Serial Audio Board</title>
+  <meta name="description" content="Aplikasi Soundboard Interaktif untuk ESP32 / Arduino dengan Web Serial Auto-Detect dan Drag & Drop Audio.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    
+    <!-- HEADER NAVBAR -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5v14M7 8v8M2 11v2M22 11v2"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>ESP32 <span>Soundboard</span></h1>
+          <p class="subtitle">Web Serial Auto-Detect & Interactive Sound Controller</p>
+        </div>
+      </div>
+
+      <!-- ESP32 CONNECTION CONTROL BAR -->
+      <div class="connection-bar">
+        <div class="status-indicator" id="status-container">
+          <span class="status-dot disconnected" id="status-dot"></span>
+          <span class="status-text" id="status-text">ESP32 Terputus</span>
+          <span class="port-name" id="port-name"></span>
+        </div>
+
+        <div class="btn-group">
+          <button id="btn-connect" class="btn btn-primary">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span id="btn-connect-label">Sambungkan ESP32</span>
+          </button>
+          
+          <button id="btn-terminal-toggle" class="btn btn-secondary" title="Buka Terminal Serial Log">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"/>
+              <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            <span>Serial Log</span>
+          </button>
+
+          <button id="btn-code-modal" class="btn btn-secondary" title="Lihat Kode Arduino ESP32">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span>Kode Arduino</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- UNSUPPORTED BROWSER BANNER -->
+    <div id="browser-warning" class="banner banner-warning hidden">
+      <div class="banner-content">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>Fitur Web Serial API tidak didukung browser ini. Gunakan <strong>Google Chrome, Microsoft Edge, Brave, atau Opera</strong> untuk mendeteksi ESP32 secara langsung via USB. (Anda masih bisa menguji suara dengan tombol/keyboard!)</span>
+      </div>
+    </div>
+
+    <!-- MAIN APP CONTENT LAYOUT (SIDEBAR + DECK) -->
+    <div class="content-layout">
+      
+      <!-- LEFT SIDEBAR: UPLOADED SOUND LIBRARY -->
+      <aside class="sidebar-library" id="sidebar-library">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <div class="sidebar-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+            </div>
+            <div>
+              <h2>Koleksi Suara</h2>
+              <p class="sidebar-subtitle">Penyimpanan Lokal Hardware</p>
+            </div>
+          </div>
+          <span class="badge" id="library-count-badge">0 Suara</span>
+        </div>
+
+        <!-- Sidebar Upload Drop Zone -->
+        <div class="library-upload-zone" id="library-upload-zone" title="Klik atau Drop file suara MP3/WAV untuk menyimpan ke komputer">
+          <input type="file" id="library-file-input" accept="audio/*" multiple class="hidden">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <div class="upload-text">
+            <strong>Upload Suara Baru</strong>
+            <span>Drag file ke sini atau <button type="button" class="btn-text-link" id="btn-trigger-upload">Pilih File</button></span>
+          </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="library-search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="library-search-input" placeholder="Cari suara di koleksi...">
+        </div>
+
+        <div class="library-tip">
+          <span class="tip-icon">💡</span>
+          <p><strong>Drag & Drop:</strong> Tarik item suara dari daftar di bawah dan lepaskan ke <strong>Slot 1 - 6</strong> di sebelah kanan!</p>
+        </div>
+
+        <!-- Sound Library Items List -->
+        <div class="library-list" id="library-list">
+          <!-- Dynamically populated via main.js -->
+        </div>
+      </aside>
+
+      <!-- RIGHT MAIN CONTENT: SOUNDBOARD DECK CONTROLLER -->
+      <main class="main-content">
+        <div class="toolbar">
+          <div class="toolbar-section">
+            <h2>Soundboard Deck</h2>
+            <span class="badge" id="slot-count-badge">6 Slot Suara Aktif</span>
+          </div>
+
+          <div class="toolbar-controls">
+            <!-- Master Volume -->
+            <div class="control-item volume-control">
+              <button id="btn-mute" class="btn-icon-only" title="Mute/Unmute Master">
+                <svg id="icon-volume" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </button>
+              <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.9" title="Master Volume">
+              <span id="master-volume-text" class="vol-label">90%</span>
+            </div>
+
+            <!-- Stop All -->
+            <button id="btn-stop-all" class="btn btn-danger-outline" title="Hentikan semua suara yang diputar (ESC)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+              <span>Stop All</span>
+            </button>
+
+            <!-- Add Slot -->
+            <button id="btn-add-slot" class="btn btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>Tambah Slot</span>
+            </button>
+
+            <!-- Soundbank Actions Dropdown/Buttons -->
+            <div class="btn-group">
+              <button id="btn-export-preset" class="btn btn-secondary" title="Simpan Konfigurasi Soundbank ke File JSON">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Export</span>
+              </button>
+              
+              <button id="btn-import-preset" class="btn btn-secondary" title="Muat Konfigurasi Soundbank dari JSON">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Import</span>
+              </button>
+
+              <button id="btn-reset-defaults" class="btn btn-ghost" title="Kembalikan ke Suara Default (suara1-6.mp3)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                <span>Reset Default</span>
+              </button>
+            </div>
+            
+            <input type="file" id="preset-file-input" accept=".json" class="hidden">
+          </div>
+        </div>
+
+        <!-- INSTRUCTION NOTICE CARD -->
+        <div class="info-card">
+          <div class="info-icon">⚡</div>
+          <div class="info-body">
+            <p><strong>Panduan:</strong> Upload file suara di sidebar kiri untuk disimpan ke penyimpanan komputer lokal. <strong>Drag & Drop</strong> suara dari sidebar kiri ke slot yang diinginkan di kanan. Tekan tombol ESP32 atau Keyboard <code>1</code> - <code>6</code> untuk membunyikan!</p>
+          </div>
+        </div>
+
+        <!-- SOUND CARDS GRID CONTAINER -->
+        <div id="soundboard-grid" class="soundboard-grid">
+          <!-- Dynamically populated via main.js -->
+        </div>
+      </main>
+    </div>
+
+    <!-- SERIAL MONITOR TERMINAL DRAWER -->
+    <div id="terminal-drawer" class="drawer hidden">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          <h3>ESP32 Serial Monitor</h3>
+        </div>
+        <div class="drawer-actions">
+          <select id="select-baud" class="select-sm" title="Baud Rate">
+            <option value="9600">9600 Baud</option>
+            <option value="115200" selected>115200 Baud (Default ESP32)</option>
+            <option value="230400">230400 Baud</option>
+          </select>
+          <button id="btn-clear-terminal" class="btn btn-ghost btn-sm">Bersihkan</button>
+          <button id="btn-close-terminal" class="btn-icon-close">&times;</button>
+        </div>
+      </div>
+      <div class="drawer-body">
+        <div id="terminal-logs" class="terminal-logs">
+          <div class="log-line system">[SYSTEM] Serial Monitor Siap. Menunggu koneksi ESP32...</div>
+        </div>
+      </div>
+      <div class="drawer-footer">
+        <input type="text" id="terminal-input" placeholder="Kirim perintah manual ke ESP32 (contoh: 1, test, status)...">
+        <button id="btn-send-serial" class="btn btn-sm btn-primary">Kirim</button>
+      </div>
+    </div>
+
+    <!-- ARDUINO ESP32 CODE MODAL -->
+    <div id="code-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Kode ESP32 / Arduino (.ino)</h3>
+          <button id="btn-close-code-modal" class="btn-icon-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Upload kode C++ berikut ke ESP32 menggunakan <strong>Arduino IDE</strong>. Sinyal dikirim via Serial USB ke website ini secara real-time.</p>
+          
+          <div class="code-container">
+            <div class="code-header">
+              <span>esp32_soundboard.ino</span>
+              <button id="btn-copy-code" class="btn btn-sm btn-primary">Salin Kode</button>
+            </div>
+            <pre><code id="code-block">// ============================================================
+// ESP32 Soundboard Firmware for Web Serial Studio
+// Sambungkan 6 Tombol Push Button ke Pin GPIO 4, 5, 18, 19, 21, 22
+// Tombol menyambungkan Pin ke GND (Internal Pullup Digunakan)
+// ============================================================
+
+#define NUM_BUTTONS 6
+
+// Pin GPIO yang terhubung ke tombol
+const int buttonPins[NUM_BUTTONS] = {4, 5, 18, 19, 21, 22};
+
+// Karakter sinyal yang dikirim ke Website
+const char buttonKeys[NUM_BUTTONS] = {'1', '2', '3', '4', '5', '6'};
+
+// Parameter Debounce
+unsigned long lastDebounceTime[NUM_BUTTONS] = {0};
+bool lastButtonState[NUM_BUTTONS] = {HIGH};
+bool buttonState[NUM_BUTTONS] = {HIGH};
+const unsigned long debounceDelay = 50; // 50ms debounce
+
+void setup() {
+  // Inisialisasi Serial ke 115200 Baud (Sesuaikan dengan Website)
+  Serial.begin(115200);
+
+  // Inisialisasi Pin Tombol dengan Input Pullup (Aktif LOW)
+  for (int i = 0; i &lt; NUM_BUTTONS; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
+
+  Serial.println("[ESP32 SOUNDBOARD READY]");
+}
+
+void loop() {
+  for (int i = 0; i &lt; NUM_BUTTONS; i++) {
+    int reading = digitalRead(buttonPins[i]);
+
+    // Jika status pin berubah (karena ditekan atau noise)
+    if (reading != lastButtonState[i]) {
+      lastDebounceTime[i] = millis();
+    }
+
+    if ((millis() - lastDebounceTime[i]) > debounceDelay) {
+      if (reading != buttonState[i]) {
+        buttonState[i] = reading;
+
+        // Tombol Ditekan (LOW karena INPUT_PULLUP)
+        if (buttonState[i] == LOW) {
+          // Kirim karakter sinyal tombol ke Website
+          Serial.println(buttonKeys[i]);
+        }
+      }
+    }
+    lastButtonState[i] = reading;
+  }
+}</code></pre>
+          </div>
+
+          <div class="pin-guide">
+            <h4>Skema Wiring Rangkaian ESP32:</h4>
+            <ul>
+              <li><strong>Tombol 1 (Suara 1):</strong> Pin GPIO 4 ➔ Tombol Push ➔ GND</li>
+              <li><strong>Tombol 2 (Suara 2):</strong> Pin GPIO 5 ➔ Tombol Push ➔ GND</li>
+              <li><strong>Tombol 3 (Suara 3):</strong> Pin GPIO 18 ➔ Tombol Push ➔ GND</li>
+              <li><strong>Tombol 4 (Suara 4):</strong> Pin GPIO 19 ➔ Tombol Push ➔ GND</li>
+              <li><strong>Tombol 5 (Suara 5):</strong> Pin GPIO 21 ➔ Tombol Push ➔ GND</li>
+              <li><strong>Tombol 6 (Suara 6):</strong> Pin GPIO 22 ➔ Tombol Push ➔ GND</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIO RECORDER MODAL -->
+    <div id="recorder-modal" class="modal-overlay hidden">
+      <div class="modal-box modal-sm">
+        <div class="modal-header">
+          <h3>Rekam Suara Mikrofon</h3>
+          <button id="btn-close-recorder" class="btn-icon-close">&times;</button>
+        </div>
+        <div class="modal-body align-center">
+          <p id="rec-target-label">Rekam suara untuk <strong>Slot 1</strong></p>
+
+          <div class="recorder-visualizer">
+            <div id="rec-timer" class="rec-timer">00:00</div>
+            <div id="rec-status" class="rec-status">Siap Merekam</div>
+          </div>
+
+          <div class="rec-actions">
+            <button id="btn-start-rec" class="btn btn-record">
+              <span class="rec-dot"></span> Rekam
+            </button>
+            <button id="btn-stop-rec" class="btn btn-danger hidden">
+              Stop Rekam
+            </button>
+            <button id="btn-save-rec" class="btn btn-success hidden">
+              Gunakan Hasil Rekaman
+            </button>
+          </div>
+          <audio id="rec-preview-player" controls class="rec-preview hidden"></audio>
+        </div>
+      </div>
+    </div>
+
+    <!-- GLOBAL DRAG AND DROP FULLSCREEN OVERLAY INDICATOR -->
+    <div id="drop-overlay" class="drop-overlay hidden">
+      <div class="drop-modal">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h3>Simpan File ke Koleksi Suara</h3>
+        <p>Lepaskan file audio .MP3, .WAV, .OGG untuk menyimpannya ke Penyimpanan Lokal komputer</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
